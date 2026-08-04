@@ -20,6 +20,20 @@ public interface WorldManagerApi {
     Collection<WorldInfo> list();
 
     /**
+     * Resolves a loaded Bukkit world to its user-facing logical name.
+     *
+     * <p>The returned name is suitable for WorldManager commands such as
+     * {@code /worldmanager save <world>}. For ordinary root worlds it is the
+     * Bukkit world name. For worlds loaded from the internal runtime directory
+     * it is the logical snapshot name rather than the internal Bukkit path.</p>
+     *
+     * @param world the Bukkit world to resolve
+     * @return the logical name, or an empty optional when the world is null or
+     *         not known to this manager
+     */
+    Optional<String> findLogicalName(World world);
+
+    /**
      * Finds a currently loaded managed world.
      *
      * @param logicalName the single-segment logical world name

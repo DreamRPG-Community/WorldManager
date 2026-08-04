@@ -7,7 +7,6 @@ import cn.mythicland.lib.path.SafePathResolver;
 import cn.mythicland.worldmanager.api.WorldManagerApi;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,6 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
+/**
+ * Bukkit entry point for managed world discovery, loading, saving, and cleanup.
+ */
 public final class WorldManagerPlugin extends JavaPlugin {
 
     private static final String DEFAULT_WORLD_DIRECTORY = "worlds";
@@ -69,18 +71,11 @@ public final class WorldManagerPlugin extends JavaPlugin {
         return path;
     }
 
-    private static String messageOf(Throwable throwable) {
-        Throwable cause = throwable;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
-    }
-
+    // Lib owns and closes the service; this plugin only borrows it.
+    @SuppressWarnings("resource")
     @Override
     public void onEnable() {
-        LibApi libApi = findLibApi();
+        LibApi libApi = LibApi.require(this);
         FileConfiguration configuration = ConfigSupport.loadDefault(this);
         WorldManagerSettings settings = loadSettings(configuration);
         service = new WorldManagerService(this, libApi, settings);
@@ -103,7 +98,9 @@ public final class WorldManagerPlugin extends JavaPlugin {
 
         libApi.runLater(1L, () -> service.discoverAndLoadAll().whenComplete((ignored, error) -> {
             if (error != null) {
-                getLogger().warning("Startup world loading finished with failures: " + messageOf(error));
+                getLogger().warning(
+                        "Startup world loading finished with failures: " + LibApi.rootCauseMessage(error)
+                );
                 return;
             }
             getLogger().info("Startup world discovery and loading completed.");
@@ -117,16 +114,6 @@ public final class WorldManagerPlugin extends JavaPlugin {
         getServer().getServicesManager().unregister(WorldManagerApi.class, service);
         service.close();
         service = null;
-    }
-
-    private LibApi findLibApi() {
-        RegisteredServiceProvider<LibApi> registration = getServer()
-                .getServicesManager()
-                .getRegistration(LibApi.class);
-        if (registration == null || registration.getProvider() == null) {
-            throw new IllegalStateException("Lib service is unavailable; WorldManager cannot start");
-        }
-        return registration.getProvider();
     }
 
     private void registerCommand(LibApi libApi) {

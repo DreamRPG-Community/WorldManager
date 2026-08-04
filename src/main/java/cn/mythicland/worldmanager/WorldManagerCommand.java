@@ -44,7 +44,9 @@ final class WorldManagerCommand {
     ) {
         future.whenComplete((result, error) -> lib.runOnMain(() -> {
             if (error != null) {
-                sender.sendMessage(VanillaCommandMessages.red("操作失败: " + messageOf(error)));
+                sender.sendMessage(
+                        VanillaCommandMessages.red("操作失败: " + LibApi.rootCauseMessage(error))
+                );
                 return;
             }
             sender.sendMessage(VanillaCommandMessages.red(successMessage.apply(result)));
@@ -64,15 +66,6 @@ final class WorldManagerCommand {
         return names.stream()
                 .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
                 .toList();
-    }
-
-    private static String messageOf(Throwable throwable) {
-        Throwable cause = throwable;
-        while (cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
     }
 
     private abstract static class AdminCommand implements Subcommand {
@@ -270,7 +263,7 @@ final class WorldManagerCommand {
                     lib,
                     sender,
                     service.clean(worldName),
-                    deleted -> "世界清理完成: " + worldName + "，删除 " + deleted + " 项"
+                    deleted -> "世界清理完成: " + worldName + ", 删除 " + deleted + " 项"
             );
         }
 
@@ -305,7 +298,7 @@ final class WorldManagerCommand {
                     lib,
                     sender,
                     service.save(worldName),
-                    copied -> "世界快照已保存: " + worldName + "，复制 " + copied + " 项。"
+                    copied -> "世界快照已保存: " + worldName + ", 复制 " + copied + " 项。"
             );
         }
 

@@ -18,8 +18,12 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 
+/**
+ * Implements WorldManager's asynchronous lifecycle service and persistent snapshot operations.
+ */
 public final class WorldManagerService implements WorldManagerApi {
 
     private final JavaPlugin plugin;
@@ -48,16 +52,11 @@ public final class WorldManagerService implements WorldManagerApi {
     private static Throwable rootCause(Throwable throwable) {
         if (throwable == null) return null;
         Throwable cause = throwable;
-        while ((cause instanceof CompletionException || cause instanceof java.util.concurrent.ExecutionException)
+        while ((cause instanceof CompletionException || cause instanceof ExecutionException)
                 && cause.getCause() != null) {
             cause = cause.getCause();
         }
         return cause;
-    }
-
-    private static String messageOf(Throwable throwable) {
-        String message = throwable.getMessage();
-        return message == null || message.isBlank() ? throwable.getClass().getSimpleName() : message;
     }
 
     public CompletableFuture<Void> discoverAndLoadAll() {
@@ -104,6 +103,17 @@ public final class WorldManagerService implements WorldManagerApi {
                 .sorted(Comparator.comparing(ManagedWorld::logicalName))
                 .map(ManagedWorld::info)
                 .toList();
+    }
+
+    @Override
+    public Optional<String> findLogicalName(World world) {
+        if (world == null) return Optional.empty();
+
+        String bukkitName = world.getName();
+        return worlds.values().stream()
+                .filter(managedWorld -> managedWorld.bukkitName().equals(bukkitName))
+                .map(ManagedWorld::logicalName)
+                .findFirst();
     }
 
     @Override
@@ -542,7 +552,7 @@ public final class WorldManagerService implements WorldManagerApi {
         if (cause != null) {
             managedWorld.setWorld(null);
             managedWorld.setStatus(WorldStatus.FAILED);
-            managedWorld.setDetail(messageOf(cause));
+            managedWorld.setDetail(LibApi.rootCauseMessage(cause));
             plugin.getLogger().log(Level.WARNING, "Failed to load world '" + managedWorld.logicalName() + "'.", cause);
         } else {
             managedWorld.setWorld(world);
@@ -562,7 +572,7 @@ public final class WorldManagerService implements WorldManagerApi {
         Throwable cause = rootCause(error);
         if (cause != null) {
             managedWorld.setStatus(managedWorld.world() == null ? WorldStatus.FAILED : WorldStatus.LOADED);
-            managedWorld.setDetail(messageOf(cause));
+            managedWorld.setDetail(LibApi.rootCauseMessage(cause));
             result.completeExceptionally(cause);
         } else {
             managedWorld.clearOperation(result);
@@ -581,7 +591,7 @@ public final class WorldManagerService implements WorldManagerApi {
         Throwable cause = rootCause(error);
         if (cause != null) {
             managedWorld.setStatus(WorldStatus.FAILED);
-            managedWorld.setDetail(messageOf(cause));
+            managedWorld.setDetail(LibApi.rootCauseMessage(cause));
             result.completeExceptionally(cause);
         } else {
             managedWorld.setStatus(WorldStatus.DISCOVERED);
@@ -602,7 +612,7 @@ public final class WorldManagerService implements WorldManagerApi {
         if (loadedWorld != null) managedWorld.setWorld(loadedWorld);
         if (cause != null) {
             managedWorld.setStatus(loadedWorld == null ? WorldStatus.DISCOVERED : WorldStatus.LOADED);
-            managedWorld.setDetail(messageOf(cause));
+            managedWorld.setDetail(LibApi.rootCauseMessage(cause));
             result.completeExceptionally(cause);
         } else {
             managedWorld.setStatus(loadedWorld == null ? WorldStatus.DISCOVERED : WorldStatus.LOADED);

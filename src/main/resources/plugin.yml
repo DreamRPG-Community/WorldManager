@@ -10,7 +10,6 @@ commands:
   worldmanager:
     description: Manage world snapshots, runtime copies, and cross-world spawn teleports.
     aliases: [wm]
-    permission: worldmanager.admin
 
 permissions:
   worldmanager.admin:
