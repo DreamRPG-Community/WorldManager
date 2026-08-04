@@ -1,0 +1,49 @@
+plugins {
+    id "java-library"
+}
+
+group = "self-written"
+version = providers.gradleProperty("projectVersion").getOrElse("1.0.0")
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = "UTF-8"
+    options.release = 21
+    options.compilerArgs.add("-Xlint:all")
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.named("processResources") {
+    filesMatching("plugin.yml") {
+        expand(version: project.version)
+    }
+}
+
+tasks.withType(Jar).configureEach {
+    archiveBaseName = project.name
+    archiveVersion = ""
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+def paperApiVersion = "1.12.2-R0.1-20190714.184133-413"
+
+dependencies {
+    compileOnly("com.destroystokyo.paper:paper-api:${paperApiVersion}")
+    compileOnly("self-written:Lib:${project.version}")
+
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    testRuntimeOnly("self-written:Lib:${project.version}")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.10.2")
+}

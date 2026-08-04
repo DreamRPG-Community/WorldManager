@@ -1,0 +1,15 @@
+# Persistent world snapshot directory relative to the WorldManager data directory.
+# This is the only directory users should use for map files.
+world-directory: worlds
+
+# Initial root world name. It must match server.properties level-name exactly.
+initial-world-name: world
+
+# Whether to remove non-terrain resources from the persistent snapshot after saving.
+clean-world-resources: false
+
+# Whether to rebuild a world from its persistent snapshot before every load.
+auto-reset-worlds: false
+
+# Fallback world for players moved during a forced unload.
+fallback-world: world

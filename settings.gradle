@@ -1,0 +1,27 @@
+import org.gradle.api.initialization.resolve.RepositoriesMode
+
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
+    repositories {
+        mavenCentral()
+        maven {
+            name = "Paper"
+            url = uri("https://repo.papermc.io/repository/maven-public/")
+        }
+    }
+}
+
+includeBuild("../Lib") {
+    dependencySubstitution {
+        substitute module("self-written:Lib") using project(":")
+    }
+}
+
+rootProject.name = "WorldManager"
