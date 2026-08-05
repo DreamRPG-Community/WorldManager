@@ -3,13 +3,13 @@ version: ${version}
 main: cn.mythicland.worldmanager.WorldManagerPlugin
 author: ShanguanLinG
 load: STARTUP
-depend: [Lib]
+depend: [ Lib ]
 description: Manage worlds stored below the plugin data directory.
 
 commands:
   worldmanager:
     description: Manage world snapshots, runtime copies, and cross-world spawn teleports.
-    aliases: [wm]
+    aliases: [ wm ]
 
 permissions:
   worldmanager.admin:

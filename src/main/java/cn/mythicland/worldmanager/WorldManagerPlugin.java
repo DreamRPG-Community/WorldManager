@@ -71,8 +71,6 @@ public final class WorldManagerPlugin extends JavaPlugin {
         return path;
     }
 
-    // Lib owns and closes the service; this plugin only borrows it.
-    @SuppressWarnings("resource")
     @Override
     public void onEnable() {
         LibApi libApi = LibApi.require(this);

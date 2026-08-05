@@ -29,7 +29,7 @@ public interface WorldManagerApi {
      *
      * @param world the Bukkit world to resolve
      * @return the logical name, or an empty optional when the world is null or
-     *         not known to this manager
+     * not known to this manager
      */
     Optional<String> findLogicalName(World world);
 
