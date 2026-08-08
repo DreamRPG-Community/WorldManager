@@ -3,7 +3,8 @@ plugins {
 }
 
 group = "self-written"
-version = providers.gradleProperty("projectVersion").getOrElse("1.0.0")
+def buildVersion = providers.gradleProperty("projectVersion").getOrElse("1.0.0")
+version = buildVersion
 
 java {
     toolchain {
@@ -26,7 +27,7 @@ tasks.withType(Test).configureEach {
 
 tasks.named("processResources") {
     filesMatching("plugin.yml") {
-        expand(version: project.version)
+        expand(version: buildVersion)
     }
 }
 

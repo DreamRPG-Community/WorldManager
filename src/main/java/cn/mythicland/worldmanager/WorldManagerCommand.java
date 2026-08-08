@@ -29,6 +29,7 @@ final class WorldManagerCommand {
             LibApi lib
     ) {
         router.register(new ListCommand(service));
+        router.register(new ReloadCommand(service, lib));
         router.register(new TeleportCommand(service, lib));
         router.register(new LoadCommand(service, lib));
         router.register(new UnloadCommand(service, lib));
@@ -116,6 +117,35 @@ final class WorldManagerCommand {
                         "世界 " + world.name() + " - 状态: " + world.status() + detail
                 ));
             }
+        }
+    }
+
+    private static final class ReloadCommand extends AdminCommand {
+
+        private ReloadCommand(WorldManagerApi service, LibApi lib) {
+            super(service, lib);
+        }
+
+        @Override
+        public String name() {
+            return "reload";
+        }
+
+        @Override
+        public String usage() {
+            return "/worldmanager reload";
+        }
+
+        @Override
+        public void execute(CommandSender sender, List<String> arguments) {
+            if (!arguments.isEmpty()) throw new CommandUsageException(usage());
+            sender.sendMessage(VanillaCommandMessages.red("正在重载配置并扫描世界快照。"));
+            report(
+                    lib,
+                    sender,
+                    service.reload(),
+                    ignored -> "配置和世界快照重新加载完成。"
+            );
         }
     }
 

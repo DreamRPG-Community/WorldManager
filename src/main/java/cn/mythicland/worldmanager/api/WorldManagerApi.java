@@ -20,6 +20,19 @@ public interface WorldManagerApi {
     Collection<WorldInfo> list();
 
     /**
+     * Reloads runtime configuration, re-scans the persistent snapshot directory, and loads newly
+     * discovered worlds.
+     *
+     * <p>World path settings are fixed when WorldManager starts. Changing those settings still
+     * requires a server restart. Reloadable options such as resource cleanup, automatic reset,
+     * and the forced-unload fallback world are applied without replacing already loaded worlds.</p>
+     *
+     * @return a future completed after the snapshot directory has been scanned and discovered
+     * worlds have finished loading
+     */
+    CompletableFuture<Void> reload();
+
+    /**
      * Resolves a loaded Bukkit world to its user-facing logical name.
      *
      * <p>The returned name is suitable for WorldManager commands such as

@@ -1,6 +1,7 @@
 package cn.mythicland.worldmanager;
 
 import cn.mythicland.lib.api.LibApi;
+import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.lib.path.SafePathResolver;
 import cn.mythicland.worldmanager.api.WorldInfo;
 import cn.mythicland.worldmanager.api.WorldManagerApi;
@@ -8,7 +9,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.WorldCreator;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,9 +26,9 @@ import java.util.logging.Level;
  */
 public final class WorldManagerService implements WorldManagerApi {
 
-    private final JavaPlugin plugin;
+    private final WorldManagerPlugin plugin;
     private final LibApi lib;
-    private final WorldManagerSettings settings;
+    private volatile WorldManagerSettings settings;
     private final SafePathResolver snapshotResolver;
     private final SafePathResolver runtimeResolver;
     private final WorldCleaner cleaner = new WorldCleaner();
@@ -37,7 +37,7 @@ public final class WorldManagerService implements WorldManagerApi {
     private volatile boolean closed;
 
     WorldManagerService(
-            JavaPlugin plugin,
+            WorldManagerPlugin plugin,
             LibApi lib,
             WorldManagerSettings settings
     ) {
@@ -103,6 +103,21 @@ public final class WorldManagerService implements WorldManagerApi {
                 .sorted(Comparator.comparing(ManagedWorld::logicalName))
                 .map(ManagedWorld::info)
                 .toList();
+    }
+
+    @Override
+    public CompletableFuture<Void> reload() {
+        if (closed) return CompletableFuture.failedFuture(new IllegalStateException("WorldManager is closed"));
+        return lib.supplyOnMain(() -> WorldManagerSettingsLoader.load(
+                        plugin,
+                        ConfigSupport.loadDefault(plugin)
+                ))
+                .thenApply(refreshed -> settings.withReloadableOptions(refreshed))
+                .thenCompose(refreshed -> lib.runAsync(() -> {
+                    WorldManagerSettingsLoader.ensureDirectories(refreshed);
+                    settings = refreshed;
+                }))
+                .thenCompose(ignored -> discoverAndLoadAll());
     }
 
     @Override
