@@ -24,10 +24,12 @@ final class WorldManagerCommand {
 
     private static final String ROOT = "/worldmanager";
 
+    private final WorldManagerPlugin plugin;
     private final WorldManagerLifecycle lifecycle;
     private final LibApi lib;
 
-    WorldManagerCommand(WorldManagerLifecycle lifecycle, LibApi lib) {
+    WorldManagerCommand(WorldManagerPlugin plugin, WorldManagerLifecycle lifecycle, LibApi lib) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         this.lib = Objects.requireNonNull(lib, "lib");
     }
@@ -52,7 +54,7 @@ final class WorldManagerCommand {
     void reload(CommandContext context) {
         context.requireArguments(0);
         context.sender().sendMessage(VanillaCommandMessages.red("正在重载配置并扫描世界快照。"));
-        report(context, service().reload(), ignored -> "配置和世界快照重新加载完成。");
+        report(context, plugin.reloadWorldManager(), ignored -> "配置和世界快照重新加载完成。");
     }
 
     @CommandHandler(

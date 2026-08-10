@@ -4,6 +4,8 @@ import cn.mythicland.lib.api.LibApi;
 import cn.mythicland.lib.bootstrap.PluginBootstrap;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 
 /**
@@ -42,5 +44,15 @@ public final class WorldManagerPlugin extends JavaPlugin {
     public void onDisable() {
         if (bootstrap != null) bootstrap.disable();
         bootstrap = null;
+    }
+
+    /**
+     * Reloads the Lib configuration snapshot and then rescans WorldManager data.
+     *
+     * @return completion future for the world rescan
+     */
+    public CompletableFuture<Void> reloadWorldManager() {
+        Objects.requireNonNull(bootstrap, "WorldManager bootstrap is unavailable").reload();
+        return bootstrap.resolve(WorldManagerLifecycle.class).lastReload();
     }
 }

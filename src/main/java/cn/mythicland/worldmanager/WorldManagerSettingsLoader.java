@@ -1,13 +1,12 @@
 package cn.mythicland.worldmanager;
 
-import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.lib.path.SafePathResolver;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Objects;
 
 /**
  * Loads and validates WorldManager settings from a Bukkit configuration.
@@ -23,45 +22,27 @@ final class WorldManagerSettingsLoader {
     private WorldManagerSettingsLoader() {
     }
 
-    static WorldManagerSettings load(WorldManagerPlugin plugin, FileConfiguration configuration) {
-        String configuredDirectory = ConfigSupport.getString(
-                plugin,
-                configuration,
-                "world-directory",
-                DEFAULT_WORLD_DIRECTORY
-        );
+    static WorldManagerSettings load(WorldManagerPlugin plugin, WorldManagerConfiguration.RawSettings raw) {
+        Objects.requireNonNull(plugin, "plugin");
+        Objects.requireNonNull(raw, "raw");
+        String configuredDirectory = raw.worldDirectory();
         Path serverRoot = plugin.getServer().getWorldContainer().toPath().toAbsolutePath().normalize();
         Path pluginDataDirectory = plugin.getDataFolder().toPath().toAbsolutePath().normalize();
         SafePathResolver serverPathResolver = new SafePathResolver(serverRoot);
-        String initialWorldName = ConfigSupport.getString(
-                plugin,
-                configuration,
-                "initial-world-name",
-                DEFAULT_INITIAL_WORLD_NAME
-        );
+        String initialWorldName = raw.initialWorldName();
         try {
             initialWorldName = serverPathResolver.normalizeSingleSegment(initialWorldName);
         } catch (IllegalArgumentException exception) {
-            initialWorldName = ConfigSupport.resetToDefault(
-                    plugin,
-                    configuration,
-                    "initial-world-name",
-                    DEFAULT_INITIAL_WORLD_NAME,
-                    exception.getMessage()
-            );
+            warnInvalid(plugin, "initial-world-name", DEFAULT_INITIAL_WORLD_NAME, exception.getMessage());
+            initialWorldName = DEFAULT_INITIAL_WORLD_NAME;
         }
         Path initialWorldDirectory = serverPathResolver.resolveSingleSegment(initialWorldName);
         Path worldsRoot;
         try {
             worldsRoot = resolveWorldDirectory(configuredDirectory, pluginDataDirectory);
         } catch (IllegalArgumentException exception) {
-            configuredDirectory = ConfigSupport.resetToDefault(
-                    plugin,
-                    configuration,
-                    "world-directory",
-                    DEFAULT_WORLD_DIRECTORY,
-                    exception.getMessage()
-            );
+            warnInvalid(plugin, "world-directory", DEFAULT_WORLD_DIRECTORY, exception.getMessage());
+            configuredDirectory = DEFAULT_WORLD_DIRECTORY;
             worldsRoot = resolveWorldDirectory(configuredDirectory, pluginDataDirectory);
         }
 
@@ -70,22 +51,12 @@ final class WorldManagerSettingsLoader {
                 .toString()
                 .replace('\\', '/');
         SafePathResolver snapshotPathResolver = new SafePathResolver(worldsRoot);
-        String fallbackWorld = ConfigSupport.getString(
-                plugin,
-                configuration,
-                "fallback-world",
-                DEFAULT_FALLBACK_WORLD
-        );
+        String fallbackWorld = raw.fallbackWorld();
         try {
             snapshotPathResolver.normalizeSingleSegment(fallbackWorld);
         } catch (IllegalArgumentException exception) {
-            fallbackWorld = ConfigSupport.resetToDefault(
-                    plugin,
-                    configuration,
-                    "fallback-world",
-                    DEFAULT_FALLBACK_WORLD,
-                    exception.getMessage()
-            );
+            warnInvalid(plugin, "fallback-world", DEFAULT_FALLBACK_WORLD, exception.getMessage());
+            fallbackWorld = DEFAULT_FALLBACK_WORLD;
         }
         return new WorldManagerSettings(
                 worldsRoot,
@@ -93,9 +64,16 @@ final class WorldManagerSettingsLoader {
                 initialWorldDirectory,
                 initialWorldName,
                 bukkitDirectory,
-                ConfigSupport.getBoolean(plugin, configuration, "clean-world-resources", false),
-                ConfigSupport.getBoolean(plugin, configuration, "auto-reset-worlds", false),
+                raw.cleanWorldResources(),
+                raw.autoResetWorlds(),
                 fallbackWorld
+        );
+    }
+
+    private static void warnInvalid(WorldManagerPlugin plugin, String path, String defaultValue, String reason) {
+        plugin.getLogger().warning(
+                "Invalid configuration '" + path + "': " + reason
+                        + "; using the declared default '" + defaultValue + "' for this snapshot."
         );
     }
 

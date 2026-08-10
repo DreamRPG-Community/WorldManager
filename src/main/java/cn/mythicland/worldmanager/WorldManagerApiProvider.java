@@ -18,8 +18,10 @@ import java.util.concurrent.CompletableFuture;
 public final class WorldManagerApiProvider implements WorldManagerApi {
 
     private final WorldManagerLifecycle lifecycle;
+    private final WorldManagerPlugin plugin;
 
-    public WorldManagerApiProvider(WorldManagerLifecycle lifecycle) {
+    public WorldManagerApiProvider(WorldManagerPlugin plugin, WorldManagerLifecycle lifecycle) {
+        this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
     }
 
@@ -30,7 +32,7 @@ public final class WorldManagerApiProvider implements WorldManagerApi {
 
     @Override
     public CompletableFuture<Void> reload() {
-        return lifecycle.service().reload();
+        return plugin.reloadWorldManager();
     }
 
     @Override

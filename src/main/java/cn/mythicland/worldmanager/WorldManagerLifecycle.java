@@ -4,13 +4,12 @@ import cn.mythicland.lib.api.LibApi;
 import cn.mythicland.lib.bootstrap.LibPluginLifecycle;
 import cn.mythicland.lib.bootstrap.PluginTaskScope;
 import cn.mythicland.lib.bootstrap.annotation.LifecycleComponent;
-import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.worldmanager.api.WorldManagerApi;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Owns WorldManager construction, service registration, command binding, and startup discovery.
@@ -21,19 +20,27 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
     private final WorldManagerPlugin plugin;
     private final LibApi lib;
     private final PluginTaskScope tasks;
+    private final WorldManagerConfiguration configuration;
     private WorldManagerService service;
     private BukkitTask startupTask;
+    private CompletableFuture<Void> reloadFuture = CompletableFuture.completedFuture(null);
 
     /**
      * Creates the lifecycle module from Lib-provided dependencies.
      *
      * @param plugin plugin entry point
-     * @param lib shared Lib service
+     * @param lib    shared Lib service
      */
-    public WorldManagerLifecycle(WorldManagerPlugin plugin, LibApi lib, PluginTaskScope tasks) {
+    public WorldManagerLifecycle(
+            WorldManagerPlugin plugin,
+            LibApi lib,
+            PluginTaskScope tasks,
+            WorldManagerConfiguration configuration
+    ) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.lib = Objects.requireNonNull(lib, "lib");
         this.tasks = Objects.requireNonNull(tasks, "tasks");
+        this.configuration = Objects.requireNonNull(configuration, "configuration");
     }
 
     /**
@@ -41,10 +48,9 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
      */
     @Override
     public void enable() {
-        FileConfiguration configuration = ConfigSupport.loadDefault(plugin);
-        WorldManagerSettings settings = WorldManagerSettingsLoader.load(plugin, configuration);
+        WorldManagerSettings settings = configuration.snapshot();
         WorldManagerSettingsLoader.ensureDirectories(settings);
-        service = new WorldManagerService(plugin, lib, settings);
+        service = new WorldManagerService(plugin, lib, settings, configuration);
         try {
             service.restoreInitialWorld();
         } catch (IOException exception) {
@@ -74,8 +80,15 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
      */
     @Override
     public void reload() {
-        if (service == null) throw new IllegalStateException("WorldManager service is unavailable");
-        service.reload().whenComplete((ignored, error) -> {
+        reloadFuture = reloadConfiguration();
+    }
+
+    CompletableFuture<Void> reloadConfiguration() {
+        if (service == null) return CompletableFuture.failedFuture(
+                new IllegalStateException("WorldManager service is unavailable")
+        );
+        CompletableFuture<Void> current = service.reload();
+        current.whenComplete((ignored, error) -> {
             if (error != null) {
                 plugin.getLogger().warning(
                         "WorldManager configuration reload finished with failures: "
@@ -85,6 +98,11 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
             }
             plugin.getLogger().info("WorldManager configuration and snapshot reload completed.");
         });
+        return current;
+    }
+
+    CompletableFuture<Void> lastReload() {
+        return reloadFuture;
     }
 
     /**

@@ -1,7 +1,6 @@
 package cn.mythicland.worldmanager;
 
 import cn.mythicland.lib.api.LibApi;
-import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.lib.path.SafePathResolver;
 import cn.mythicland.worldmanager.api.WorldInfo;
 import cn.mythicland.worldmanager.api.WorldManagerApi;
@@ -28,22 +27,25 @@ public final class WorldManagerService implements WorldManagerApi {
 
     private final WorldManagerPlugin plugin;
     private final LibApi lib;
-    private volatile WorldManagerSettings settings;
+    private final WorldManagerConfiguration configuration;
     private final SafePathResolver snapshotResolver;
     private final SafePathResolver runtimeResolver;
     private final WorldCleaner cleaner = new WorldCleaner();
     private final WorldSnapshotService snapshots;
     private final Map<String, ManagedWorld> worlds = new ConcurrentHashMap<>();
+    private volatile WorldManagerSettings settings;
     private volatile boolean closed;
 
     WorldManagerService(
             WorldManagerPlugin plugin,
             LibApi lib,
-            WorldManagerSettings settings
+            WorldManagerSettings settings,
+            WorldManagerConfiguration configuration
     ) {
         this.plugin = plugin;
         this.lib = lib;
         this.settings = settings;
+        this.configuration = Objects.requireNonNull(configuration, "configuration");
         this.snapshotResolver = new SafePathResolver(settings.worldsRoot());
         this.runtimeResolver = new SafePathResolver(settings.runtimeRoot());
         this.snapshots = new WorldSnapshotService(settings.worldsRoot(), settings.runtimeRoot());
@@ -107,15 +109,17 @@ public final class WorldManagerService implements WorldManagerApi {
 
     @Override
     public CompletableFuture<Void> reload() {
+        return reload(configuration.snapshot());
+    }
+
+    CompletableFuture<Void> reload(WorldManagerSettings refreshed) {
         if (closed) return CompletableFuture.failedFuture(new IllegalStateException("WorldManager is closed"));
-        return lib.supplyOnMain(() -> WorldManagerSettingsLoader.load(
-                        plugin,
-                        ConfigSupport.loadDefault(plugin)
-                ))
-                .thenApply(refreshed -> settings.withReloadableOptions(refreshed))
-                .thenCompose(refreshed -> lib.runAsync(() -> {
-                    WorldManagerSettingsLoader.ensureDirectories(refreshed);
-                    settings = refreshed;
+        Objects.requireNonNull(refreshed, "refreshed");
+        return lib.supplyOnMain(() -> refreshed)
+                .thenApply(candidate -> settings.withReloadableOptions(candidate))
+                .thenCompose(candidate -> lib.runAsync(() -> {
+                    WorldManagerSettingsLoader.ensureDirectories(candidate);
+                    settings = candidate;
                 }))
                 .thenCompose(ignored -> discoverAndLoadAll());
     }
