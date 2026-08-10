@@ -19,6 +19,7 @@ public final class WorldManagerPlugin extends JavaPlugin {
      * Starts the Lib-managed WorldManager component graph.
      */
     @Override
+    @SuppressWarnings("resource")
     public void onEnable() {
         try {
             LibApi lib = LibApi.require(this);

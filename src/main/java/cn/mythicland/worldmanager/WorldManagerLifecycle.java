@@ -2,13 +2,12 @@ package cn.mythicland.worldmanager;
 
 import cn.mythicland.lib.api.LibApi;
 import cn.mythicland.lib.bootstrap.LibPluginLifecycle;
-import cn.mythicland.lib.bootstrap.annotation.InjectComponent;
-import cn.mythicland.lib.command.CommandRouter;
+import cn.mythicland.lib.bootstrap.PluginTaskScope;
+import cn.mythicland.lib.bootstrap.annotation.LifecycleComponent;
 import cn.mythicland.lib.config.ConfigSupport;
 import cn.mythicland.worldmanager.api.WorldManagerApi;
-import org.bukkit.command.PluginCommand;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.plugin.ServicePriority;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.IOException;
 import java.util.Objects;
@@ -16,12 +15,14 @@ import java.util.Objects;
 /**
  * Owns WorldManager construction, service registration, command binding, and startup discovery.
  */
-@InjectComponent
+@LifecycleComponent
 public final class WorldManagerLifecycle implements LibPluginLifecycle {
 
     private final WorldManagerPlugin plugin;
     private final LibApi lib;
+    private final PluginTaskScope tasks;
     private WorldManagerService service;
+    private BukkitTask startupTask;
 
     /**
      * Creates the lifecycle module from Lib-provided dependencies.
@@ -29,9 +30,10 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
      * @param plugin plugin entry point
      * @param lib shared Lib service
      */
-    public WorldManagerLifecycle(WorldManagerPlugin plugin, LibApi lib) {
+    public WorldManagerLifecycle(WorldManagerPlugin plugin, LibApi lib, PluginTaskScope tasks) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.lib = Objects.requireNonNull(lib, "lib");
+        this.tasks = Objects.requireNonNull(tasks, "tasks");
     }
 
     /**
@@ -52,14 +54,7 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
             );
         }
 
-        plugin.getServer().getServicesManager().register(
-                WorldManagerApi.class,
-                service,
-                plugin,
-                ServicePriority.Normal
-        );
-        registerCommand();
-        lib.runLater(1L, () -> service.discoverAndLoadAll().whenComplete((ignored, error) -> {
+        startupTask = tasks.runLater(1L, () -> service.discoverAndLoadAll().whenComplete((ignored, error) -> {
             if (error != null) {
                 plugin.getLogger().warning(
                         "Startup world loading finished with failures: " + LibApi.rootCauseMessage(error)
@@ -97,22 +92,20 @@ public final class WorldManagerLifecycle implements LibPluginLifecycle {
      */
     @Override
     public void disable() {
+        tasks.cancel(startupTask);
+        startupTask = null;
         if (service == null) return;
-        plugin.getServer().getServicesManager().unregister(WorldManagerApi.class, service);
         service.close();
         service = null;
     }
 
-    private void registerCommand() {
-        PluginCommand command = plugin.getCommand("worldmanager");
-        if (command == null) {
-            throw new IllegalStateException("worldmanager command is missing from plugin.yml");
-        }
-
-        CommandRouter router = lib.createCommandRouter(plugin, "worldmanager");
-        WorldManagerCommand.register(router, service, lib);
-        command.setExecutor(router);
-        command.setTabCompleter(router);
+    /**
+     * Returns the active world manager service to annotation-driven commands.
+     *
+     * @return active world manager service
+     */
+    public WorldManagerApi service() {
+        return Objects.requireNonNull(service, "WorldManager service is unavailable");
     }
 
 }
